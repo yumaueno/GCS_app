@@ -14,7 +14,8 @@ st.sidebar.header("Google Search Console 設定")
 uploaded_file = st.sidebar.file_uploader(
     "サービスアカウントJSONファイルをアップロードしてください", type="json"
 )
-domain = st.sidebar.text_input(
+st.sidebar.markdown("※JSONファイルの取得方法は[こちら](https://www.udemy.com/course/python-gsc/?referralCode=D7A6DCFFB71D0E39E121)の「Google Search ConsoleのAPIを使うための準備」部分を参考にしてください")
+SITE_URL = st.sidebar.text_input(
     "ドメインを入力してください (例: https://www.example.com)"
 )
 
@@ -29,7 +30,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # 集計開始ボタン
-if uploaded_file and domain:
+if uploaded_file and SITE_URL:
     if st.sidebar.button("分析開始"):
         try:
             # JSONファイルをロードし、認証情報をセット
@@ -40,54 +41,32 @@ if uploaded_file and domain:
             )
             service = build("searchconsole", "v1", credentials=credentials)
 
-            # データ取得関数
-            def get_search_analytics(service, site_url, start_date, end_date):
-                request = {
-                    "startDate": str(start_date),
-                    "endDate": str(end_date),
-                    "dimensions": ["query", "page"],
-                    "rowLimit": 25000,
-                }
-                response = (
-                    service.searchanalytics()
-                    .query(siteUrl=site_url, body=request)
-                    .execute()
-                )
-                return response
+            request = {
+                "startDate": start_date.strftime("%Y-%m-%d"),
+                "endDate": end_date.strftime("%Y-%m-%d"),
+                "dimension": ["query", "page"],
+                "rowLimit": 25000,
+                "startRow": 0
+            }
 
-            # データをAPIから取得
-            data = get_search_analytics(service, domain, start_date, end_date)
+            response = service.searchanalytics().query(siteUrl = SITE_URL, body=request).execute()
 
-            # データ整形
-            if "rows" in data:
-                rows = data["rows"]
-                query_data = []
-                for row in rows:
-                    query = row["keys"][0]
-                    page = row["keys"][1]
-                    clicks = row["clicks"]
-                    impressions = row["impressions"]
-                    ctr = row["ctr"]
-                    position = row["position"]
-                    query_data.append([query, page, clicks, impressions, ctr, position])
+            rows = response.get("rows", [])
+            data = []
 
-                df = pd.DataFrame(
-                    query_data,
-                    columns=[
-                        "Query",
-                        "Page",
-                        "Clicks",
-                        "Impressions",
-                        "CTR",
-                        "Position",
-                    ],
-                )
+            for row in rows:
+                query = row["keys"][0]
+                page = row["keys"][1]
+                clicks = row["clicks"]
+                impressions = row["impressions"]
+                ctr = row["ctr"]
+                position = row["position"]
+                data.append([query, page, clicks, impressions, ctr, position])
 
-                # #がついているURLは除外
-                df = df[~df["Page"].str.contains("#")]
+            df = pd.DataFrame(data, columns=["query", "page", "clicks", "impressions", "ctr", "position"])
 
-                # セッションにデータを保存
-                st.session_state.df = df
+            # セッションにデータを保存
+            st.session_state.df = df
 
         except Exception as e:
             st.error(f"エラーが発生しました: {str(e)}")
@@ -103,92 +82,92 @@ if st.session_state.df is not None:
     # スライダーでフィルタリング条件を設定
     st.header("フィルタリング条件の設定")
 
-    # Impressions の範囲を1行で表示
-    st.subheader("Impressions の範囲")
+    # impressions の範囲を1行で表示
+    st.subheader("impressions の範囲")
     col1, col2 = st.columns(2)
     with col1:
         min_impressions = st.number_input(
-            "Impressions 以上",
-            min_value=int(df["Impressions"].min()),
-            max_value=int(df["Impressions"].max()),
-            value=int(df["Impressions"].min()),
+            "impressions 以上",
+            min_value=int(df["impressions"].min()),
+            max_value=int(df["impressions"].max()),
+            value=int(df["impressions"].min()),
         )
     with col2:
         max_impressions = st.number_input(
-            "Impressions 以下",
-            min_value=int(df["Impressions"].min()),
-            max_value=int(df["Impressions"].max()),
-            value=int(df["Impressions"].max()),
+            "impressions 以下",
+            min_value=int(df["impressions"].min()),
+            max_value=int(df["impressions"].max()),
+            value=int(df["impressions"].max()),
         )
 
-    # Clicks の範囲を1行で表示
-    st.subheader("Clicks の範囲")
+    # clicks の範囲を1行で表示
+    st.subheader("clicks の範囲")
     col3, col4 = st.columns(2)
     with col3:
         min_clicks = st.number_input(
-            "Clicks 以上",
-            min_value=int(df["Clicks"].min()),
-            max_value=int(df["Clicks"].max()),
-            value=int(df["Clicks"].min()),
+            "clicks 以上",
+            min_value=int(df["clicks"].min()),
+            max_value=int(df["clicks"].max()),
+            value=int(df["clicks"].min()),
         )
     with col4:
         max_clicks = st.number_input(
-            "Clicks 以下",
-            min_value=int(df["Clicks"].min()),
-            max_value=int(df["Clicks"].max()),
-            value=int(df["Clicks"].max()),
+            "clicks 以下",
+            min_value=int(df["clicks"].min()),
+            max_value=int(df["clicks"].max()),
+            value=int(df["clicks"].max()),
         )
 
     
-    # Position の範囲を1行で表示
-    st.subheader("順位 (Position) の範囲")
+    # position の範囲を1行で表示
+    st.subheader("順位 (position) の範囲")
     col5, col6 = st.columns(2)
     with col5:
         min_position = st.number_input(
             "順位 以上",
-            min_value=int(df['Position'].min()),
-            max_value=int(df['Position'].max()),
-            value=int(df['Position'].min())
+            min_value=int(df['position'].min()),
+            max_value=int(df['position'].max()),
+            value=int(df['position'].min())
         )
     with col6:
         max_position = st.number_input(
             "順位 以下",
-            min_value=int(df['Position'].min()),
-            max_value=int(df['Position'].max()),
-            value=int(df['Position'].max())
+            min_value=int(df['position'].min()),
+            max_value=int(df['position'].max()),
+            value=int(df['position'].max())
         )
 
-    # CTR の範囲を1行で表示
-    st.subheader("CTR の範囲")
+    # ctr の範囲を1行で表示
+    st.subheader("ctr の範囲")
     col7, col8 = st.columns(2)
     with col7:
         min_ctr = st.number_input(
-            "CTR 以上",
-            min_value=float(df['CTR'].min()),
-            max_value=float(df['CTR'].max()),
-            value=float(df['CTR'].min()),
+            "ctr 以上",
+            min_value=float(df['ctr'].min()),
+            max_value=float(df['ctr'].max()),
+            value=float(df['ctr'].min()),
             step=0.01
         )
     with col8:
         max_ctr = st.number_input(
-            "CTR 以下",
-            min_value=float(df['CTR'].min()),
-            max_value=float(df['CTR'].max()),
-            value=float(df['CTR'].max()),
+            "ctr 以下",
+            min_value=float(df['ctr'].min()),
+            max_value=float(df['ctr'].max()),
+            value=float(df['ctr'].max()),
             step=0.01
         )
 
 
     # フィルタリング条件の適用
     filtered_df = df[
-        (df["Impressions"] >= min_impressions)
-        & (df["Impressions"] <= max_impressions)
-        & (df["Clicks"] >= min_clicks)
-        & (df["Clicks"] <= max_clicks)
-        & (df["Position"] >= min_position)
-        & (df["Position"] <= max_position)
-        & (df["CTR"] >= min_ctr)
-        & (df["CTR"] <= max_ctr)
+        (df["impressions"] >= min_impressions)
+        & (df["impressions"] <= max_impressions)
+        & (df["clicks"] >= min_clicks)
+        & (df["clicks"] <= max_clicks)
+        & (df["position"] >= min_position)
+        & (df["position"] <= max_position)
+        & (df["ctr"] >= min_ctr)
+        & (df["ctr"] <= max_ctr)
     ]
 
     # フィルタリングされたデータの表示
