@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import matplotlib.pyplot as plt
 import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
